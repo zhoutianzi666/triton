@@ -19,6 +19,10 @@ from .interpreter import InterpretedFunction
 def get_cuda_stream(idx=None):
     if idx is None:
         idx = get_current_device()
+    if os.environ.get("TRITON_USE_PADDLE", None) == "TRUE":
+        import paddle
+        stream = paddle.device.cuda.current_stream(idx).cuda_stream
+        return stream
     try:
         from torch._C import _cuda_getCurrentRawStream
         return _cuda_getCurrentRawStream(idx)
@@ -28,16 +32,32 @@ def get_cuda_stream(idx=None):
 
 
 def get_current_device():
+    if os.environ.get("TRITON_USE_PADDLE", None) == "TRUE":
+        import paddle
+        device_num = paddle.device.get_device()
+        try:
+            gpu_id = device_num.split(':')[1]
+            return (int)(gpu_id)
+        except IndexError:
+            raise RuntimeError("CUDA is not available or No available CUDA device for the specified CUDA_VISIBLE_DEVICES")
+            
     import torch
     return torch.cuda.current_device()
 
 
 def set_current_device(idx):
+    if os.environ.get("TRITON_USE_PADDLE", None) == "TRUE":
+        import paddle
+        paddle.device.set_device(f'gpu:{idx}')
+        return
     import torch
     torch.cuda.set_device(idx)
 
 
 def get_device_capability(idx):
+    if os.environ.get("TRITON_USE_PADDLE", None) == "TRUE":
+        import paddle
+        return paddle.device.cuda.get_device_capability(idx)
     import torch
     return torch.cuda.get_device_capability(idx)
 
