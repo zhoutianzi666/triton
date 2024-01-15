@@ -99,8 +99,6 @@ arbitrary LLVM version.
 
 # Tips for building
 
-- Set `TRITON_USE_PADDLE=true` to use TRITON with PADDLE.
-
 - Set `TRITON_BUILD_WITH_CLANG_LLD=true` as an environment variable to use clang
   and lld.  lld in particular results in faster builds.
 
