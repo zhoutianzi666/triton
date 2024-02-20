@@ -1,4 +1,11 @@
 
+
+"""
+This code is minor modification on https://github.com/openai/triton/blob/main/python/tutorials/02-fused-softmax.py, 
+please refer it for detailed comments
+"""
+
+
 import paddle
 import triton
 import triton.language as tl
