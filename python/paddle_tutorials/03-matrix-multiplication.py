@@ -1,10 +1,6 @@
 """
-Matrix Multiplication
-=====================
-The following code is based on https://github.com/openai/triton/blob/main/python/tutorials/03-matrix-multiplication.py 
-
-It illustrates how to execute Matrix Multiplication Kernel within Paddle using Triton.
-
+This code is minor modification on https://github.com/openai/triton/blob/main/python/tutorials/03-matrix-multiplication.py, 
+please refer it for detailed comments
 """
 
 
@@ -14,6 +10,19 @@ import triton
 import triton.language as tl
 
 
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 256, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 8}, num_stages=3, num_warps=8),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 256, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
+        triton.Config({'BLOCK_SIZE_M': 32, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
+    ],
+    key=['M', 'N', 'K'],
+)
 @triton.jit
 def matmul_kernel(
     # Pointers to matrices
@@ -123,8 +132,8 @@ def matmul(a, b, activation=""):
         a.shape[1], 1, 
         b.shape[0], 1,
         c.shape[0], 1,
-        BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
-        BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
+        # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
+        # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
         ACTIVATION=activation
     )
     return c

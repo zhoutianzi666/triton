@@ -83,7 +83,7 @@ def do_bench(fn, warmup=25, rep=100, grad_to_none=None,
              fast_flush=True,
              return_mode="mean"):
     assert return_mode in ["min", "max", "mean", "median"]
-    import torch
+    
     """
     Benchmark the runtime of the provided function. By default, return the median runtime of :code:`fn` along with
     the 20-th and 80-th performance percentile.
@@ -101,7 +101,61 @@ def do_bench(fn, warmup=25, rep=100, grad_to_none=None,
     :param fast_flush: Use faster kernel to flush L2 between measurements
     :type fast_flush: bool
     """
-
+    if os.environ.get("TRITON_USE_PADDLE", None) == "TRUE":
+         import paddle
+         fn()
+         device_num = paddle.device.get_device()
+         try:
+             gpu_id = int(device_num.split(':')[1])
+         except IndexError:
+             raise RuntimeError("CUDA is not available or No available CUDA device for the specified CUDA_VISIBLE_DEVICES")
+         paddle.device.cuda.synchronize(gpu_id)
+         # 256 MB is the default L2 cache size on most GPUs 
+         if fast_flush:
+             cache = paddle.empty(shape=[int(256e6 // 4)], dtype=paddle.int32)
+         else:
+             cache = paddle.empty(shape=[int(256e6)], dtype=paddle.int8)
+         # Estimate the runtime of the function
+         import datetime
+         start_time = datetime.datetime.now()
+         for _ in range(5):
+             cache.zero_()
+             fn()
+         paddle.device.cuda.synchronize(gpu_id)
+         end_time = datetime.datetime.now()
+         duringtime = end_time - start_time
+         estimate_ms = (duringtime.seconds * 1000 + duringtime.microseconds / 1000.0) / 5
+         # compute number of warmup and repeat
+         n_warmup = max(1, int(warmup / estimate_ms))
+         n_repeat = max(1, int(rep / estimate_ms))
+         start_time = [0.0] * n_repeat
+         end_time = [0.0] * n_repeat
+         # Warm-up
+         for _ in range(n_warmup):
+             fn()
+         # Benchmark
+         for i in range(n_repeat):
+             # we don't want `fn` to accumulate gradient values
+             # if it contains a backward pass. So we clear the
+             # provided gradients
+             if grad_to_none is not None:
+                 for x in grad_to_none:
+                     x.grad = None
+             # [undo] we clear the L2 cache before each run
+             cache.zero_()
+             # record time of `fn`
+             start_time[i] = datetime.datetime.now()
+             fn()
+             end_time[i] = datetime.datetime.now()
+         paddle.device.cuda.synchronize(gpu_id)
+         times = paddle.to_tensor([ ((e-s).seconds * 1000 + (e-s).microseconds / 1000.0)  for s, e in zip(start_time, end_time)], dtype='float32')
+         if quantiles is not None:
+             ret = paddle.quantile(times, quantiles).tolist()
+             if len(ret) == 1:
+                 ret = ret[0]
+             return ret
+         return getattr(paddle, return_mode)(times).item()
+    import torch
     fn()
     torch.cuda.synchronize()
 
