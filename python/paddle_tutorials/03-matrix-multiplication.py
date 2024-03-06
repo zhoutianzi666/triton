@@ -130,8 +130,8 @@ def matmul(a, b, activation=""):
         a, b, c,
         M, N, K,
         a.shape[1], 1, 
-        b.shape[0], 1,
-        c.shape[0], 1,
+        b.shape[1], 1,
+        c.shape[1], 1,
         # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
         # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
         ACTIVATION=activation
