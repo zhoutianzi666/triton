@@ -26,7 +26,7 @@ import triton.language as tl
 @triton.jit
 def matmul_kernel(
     # Pointers to matrices
-    a_ptr, b_ptr, c_ptr,
+    a_ptr, b_ptr, c_ptr, bias_ptr,
     # Matrix dimensions
     M, N, K,
     # The stride variables represent how much to increase the ptr by when moving by 1
@@ -88,10 +88,12 @@ def matmul_kernel(
         b_ptrs += BLOCK_SIZE_K * stride_bk
     # You can fuse arbitrary activation functions here
     # while the accumulator is still in FP32!
+    c = accumulator.to(tl.float16)
+    bias_ptr = bias_ptr + offs_bn[None, :]
+    bias = tl.load(bias_ptr, mask=offs_bn[None, :] < N, other=0.0)
+    c = c + bias
     if ACTIVATION == "leaky_relu":
         accumulator = leaky_relu(accumulator)
-    c = accumulator.to(tl.float16)
-
     # -----------------------------------------------------------
     # Write back the block of the output matrix C with masks.
     offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
@@ -113,7 +115,7 @@ def leaky_relu(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel.
 
 
-def matmul(a, b, activation=""):
+def matmul(a, b, bias, activation=""):
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
@@ -127,7 +129,7 @@ def matmul(a, b, activation=""):
         triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
     matmul_kernel[grid](
-        a, b, c,
+        a, b, c, bias,
         M, N, K,
         a.shape[1], 1, 
         b.shape[1], 1,
@@ -149,10 +151,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 shape_tensor_1 = paddle.to_tensor([512, 512], dtype=paddle.int32)
 shape_tensor_2 = paddle.to_tensor([512, 512], dtype=paddle.int32)
+shape_tensor_3 = paddle.to_tensor([512], dtype=paddle.int32)
 a = paddle.randn(shape_tensor_1, dtype=paddle.float16)
 b = paddle.randn(shape_tensor_2, dtype=paddle.float16)
-triton_output = matmul(a, b)
-paddle_output = paddle.matmul(a, b)
+bias = paddle.randn(shape_tensor_3, dtype=paddle.float16)
+triton_output = matmul(a, b, bias)
+paddle_output = paddle.matmul(a, b) + bias
 
 # print(f"triton_output={triton_output}")
 # print(f"paddle_output={paddle_output}")
