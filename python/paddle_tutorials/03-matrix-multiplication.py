@@ -86,12 +86,13 @@ def matmul_kernel(
         # Advance the ptrs to the next K block.
         a_ptrs += BLOCK_SIZE_K * stride_ak
         b_ptrs += BLOCK_SIZE_K * stride_bk
-    # You can fuse arbitrary activation functions here
+    # You can fuse bias or arbitrary activation functions here
     # while the accumulator is still in FP32!
     c = accumulator.to(tl.float16)
-    bias_ptr = bias_ptr + offs_bn[None, :]
-    bias = tl.load(bias_ptr, mask=offs_bn[None, :] < N, other=0.0)
-    c = c + bias
+    if bias_ptr is not None:
+        bias_ptr = bias_ptr + offs_bn[None, :]
+        bias = tl.load(bias_ptr, mask=offs_bn[None, :] < N, other=0.0)
+        c = c + bias
     if ACTIVATION == "leaky_relu":
         accumulator = leaky_relu(accumulator)
     # -----------------------------------------------------------
@@ -115,7 +116,7 @@ def leaky_relu(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel.
 
 
-def matmul(a, b, bias, activation=""):
+def matmul(a, b, bias=None, activation=""):
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
@@ -155,14 +156,19 @@ shape_tensor_3 = paddle.to_tensor([1024], dtype=paddle.int32)
 a = paddle.randn(shape_tensor_1, dtype=paddle.float16)
 b = paddle.randn(shape_tensor_2, dtype=paddle.float16)
 bias = paddle.randn(shape_tensor_3, dtype=paddle.float16)
-triton_output = matmul(a, b, bias)
-paddle_output = paddle.matmul(a, b) + bias
 
-# print(f"triton_output={triton_output}")
-# print(f"paddle_output={paddle_output}")
-
+# A X B
+triton_output = matmul(a, b)
+paddle_output = paddle.matmul(a, b)
 if paddle.allclose(triton_output, paddle_output, atol=1e-2, rtol=0.0):
     print("✅ Triton and Paddle match")
 else:
     print("❌ Triton and Paddle differ")
 
+# A X B + bias
+triton_output = matmul(a, b, bias)
+paddle_output = paddle.matmul(a, b) + bias
+if paddle.allclose(triton_output, paddle_output, atol=1e-2, rtol=0.0):
+    print("✅ Triton and Paddle match")
+else:
+    print("❌ Triton and Paddle differ")
