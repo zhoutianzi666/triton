@@ -149,9 +149,9 @@ def matmul(a, b, bias, activation=""):
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-shape_tensor_1 = paddle.to_tensor([512, 512], dtype=paddle.int32)
-shape_tensor_2 = paddle.to_tensor([512, 512], dtype=paddle.int32)
-shape_tensor_3 = paddle.to_tensor([512], dtype=paddle.int32)
+shape_tensor_1 = paddle.to_tensor([32, 512], dtype=paddle.int32)
+shape_tensor_2 = paddle.to_tensor([512, 1024], dtype=paddle.int32)
+shape_tensor_3 = paddle.to_tensor([1024], dtype=paddle.int32)
 a = paddle.randn(shape_tensor_1, dtype=paddle.float16)
 b = paddle.randn(shape_tensor_2, dtype=paddle.float16)
 bias = paddle.randn(shape_tensor_3, dtype=paddle.float16)
