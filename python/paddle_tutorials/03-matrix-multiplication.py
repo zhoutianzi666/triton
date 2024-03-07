@@ -125,36 +125,28 @@ def matmul(a, b, bias=None, activation="", istransposed=False):
     assert a.is_contiguous(), "Matrix A must be contiguous"
     assert b.is_contiguous(), "Matrix B must be contiguous"
     M, K = a.shape
+    stride_am, stride_ak = K, 1
     if istransposed:
         N, K = b.shape
+        stride_bk, stride_bn = 1, K
     else:
         K, N = b.shape
+        stride_bk, stride_bn = N, 1
+    stride_cm, stride_cn = N, 1
     # Allocates output.
     c = paddle.empty((M, N), dtype=a.dtype)
     # 1D launch kernel where each block gets its own program.
     grid = lambda META: (
         triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
-    if istransposed:
-        matmul_kernel[grid](
+    matmul_kernel[grid](
             a, b, c, bias,
             M, N, K,
-            a.shape[1], 1, 
-            1, b.shape[1],
-            c.shape[1], 1,
+            stride_am, stride_ak, 
+            stride_bk, stride_bn,
+            stride_cm, stride_cn,
             # BLOCK_SIZE_M = 256, BLOCK_SIZE_N = 384,
             # BLOCK_SIZE_K = 128, GROUP_SIZE_M = 8,
-            ACTIVATION=activation
-        )
-    else:
-        matmul_kernel[grid](
-            a, b, c, bias,
-            M, N, K,
-            a.shape[1], 1, 
-            b.shape[1], 1,
-            c.shape[1], 1,
-            # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
-            # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
             ACTIVATION=activation
         )
     return c
