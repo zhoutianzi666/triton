@@ -140,15 +140,15 @@ def matmul(a, b, bias=None, activation="", istransposed=False):
         triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
     matmul_kernel[grid](
-            a, b, c, bias,
-            M, N, K,
-            stride_am, stride_ak, 
-            stride_bk, stride_bn,
-            stride_cm, stride_cn,
-            # BLOCK_SIZE_M = 256, BLOCK_SIZE_N = 384,
-            # BLOCK_SIZE_K = 128, GROUP_SIZE_M = 8,
-            ACTIVATION=activation
-        )
+        a, b, c, bias,
+        M, N, K,
+        stride_am, stride_ak, 
+        stride_bk, stride_bn,
+        stride_cm, stride_cn,
+        # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
+        # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
+        ACTIVATION=activation
+    )
     return c
 
 
