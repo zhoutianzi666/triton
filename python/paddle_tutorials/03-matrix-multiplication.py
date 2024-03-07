@@ -116,8 +116,8 @@ def leaky_relu(x):
 def matmul(a, b, activation=""):
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
-    assert a.is_contiguous(), "Matrix A must be contiguous"
-    assert b.is_contiguous(), "Matrix B must be contiguous"
+    #assert a.is_contiguous(), "Matrix A must be contiguous"
+    #assert b.is_contiguous(), "Matrix B must be contiguous"
     M, K = a.shape
     K, N = b.shape
     # Allocates output.
@@ -130,8 +130,8 @@ def matmul(a, b, activation=""):
         a, b, c,
         M, N, K,
         a.shape[1], 1, 
-        b.shape[0], 1,
-        c.shape[0], 1,
+        b.shape[1], 1,
+        c.shape[1], 1,
         # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
         # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
         ACTIVATION=activation
@@ -147,8 +147,8 @@ def matmul(a, b, activation=""):
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-shape_tensor_1 = paddle.to_tensor([512, 512], dtype=paddle.int32)
-shape_tensor_2 = paddle.to_tensor([512, 512], dtype=paddle.int32)
+shape_tensor_1 = paddle.to_tensor([512, 5120], dtype=paddle.int32)
+shape_tensor_2 = paddle.to_tensor([5120, 51200], dtype=paddle.int32)
 a = paddle.randn(shape_tensor_1, dtype=paddle.float16)
 b = paddle.randn(shape_tensor_2, dtype=paddle.float16)
 triton_output = matmul(a, b)
