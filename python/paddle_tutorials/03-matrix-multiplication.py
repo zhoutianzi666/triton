@@ -90,8 +90,8 @@ def matmul_kernel(
     # while the accumulator is still in FP32!
     c = accumulator.to(tl.float16)
     if bias_ptr is not None:
-        bias_ptr = bias_ptr + offs_bn[None, :]
-        bias = tl.load(bias_ptr, mask=offs_bn[None, :] < N, other=0.0)
+        bias_ptrs = bias_ptr + offs_bn[None, :]
+        bias = tl.load(bias_ptrs, mask=offs_bn[None, :] < N, other=0.0)
         c = c + bias
     if ACTIVATION == "leaky_relu":
         accumulator = leaky_relu(accumulator)
