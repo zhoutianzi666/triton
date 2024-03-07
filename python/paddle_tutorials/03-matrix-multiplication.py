@@ -171,11 +171,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 shape_tensor_1 = paddle.to_tensor([32, 512], dtype=paddle.int32)
 shape_tensor_2 = paddle.to_tensor([512, 1024], dtype=paddle.int32)
 shape_tensor_3 = paddle.to_tensor([1024], dtype=paddle.int32)
-shape_tensor_4 = paddle.to_tensor([1024, 512], dtype=paddle.int32)
 a = paddle.randn(shape_tensor_1, dtype=paddle.float16)
 b = paddle.randn(shape_tensor_2, dtype=paddle.float16)
 bias = paddle.randn(shape_tensor_3, dtype=paddle.float16)
-b_T = paddle.randn(shape_tensor_4, dtype=paddle.float16)
 
 # A X B
 triton_output = matmul(a, b)
@@ -194,8 +192,10 @@ else:
     print("❌ Triton and Paddle differ")
 
 # A X B^T
+paddle_output = paddle.matmul(a, b)
+b_T = b.transpose(perm=[1, 0])
+b_T = b_T.contiguous()
 triton_output = matmul(a, b_T, istransposed = True)
-paddle_output = paddle.matmul(a, paddle.transpose(b_T, perm=[1, 0]))
 if paddle.allclose(triton_output, paddle_output, atol=1e-2, rtol=0.0):
     print("✅ Triton and Paddle match")
 else:
