@@ -144,10 +144,11 @@ def do_bench(fn, warmup=25, rep=100, grad_to_none=None,
              # [undo] we clear the L2 cache before each run
              cache.zero_()
              # record time of `fn`
+             paddle.device.cuda.synchronize(gpu_id)
              start_time[i] = datetime.datetime.now()
              fn()
+             paddle.device.cuda.synchronize(gpu_id)
              end_time[i] = datetime.datetime.now()
-         paddle.device.cuda.synchronize(gpu_id)
          times = paddle.to_tensor([ ((e-s).seconds * 1000 + (e-s).microseconds / 1000.0)  for s, e in zip(start_time, end_time)], dtype='float32')
          if quantiles is not None:
              ret = paddle.quantile(times, quantiles).tolist()
