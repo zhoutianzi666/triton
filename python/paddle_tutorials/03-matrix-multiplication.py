@@ -116,13 +116,23 @@ def leaky_relu(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel.
 
 
-def matmul(a, b, bias=None, activation=""):
+def matmul(a, b, bias=None, activation="", istransposed=False):
     # Check constraints.
-    assert a.shape[1] == b.shape[0], "Incompatible dimensions"
+    if istransposed:
+        assert a.shape[1] == b.shape[1], "Incompatible dimensions"
+    else:
+        assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
     assert b.is_contiguous(), "Matrix B must be contiguous"
     M, K = a.shape
-    K, N = b.shape
+    stride_am, stride_ak = K, 1
+    if istransposed:
+        N, K = b.shape
+        stride_bk, stride_bn = 1, K
+    else:
+        K, N = b.shape
+        stride_bk, stride_bn = N, 1
+    stride_cm, stride_cn = N, 1
     # Allocates output.
     c = paddle.empty((M, N), dtype=a.dtype)
     # 1D launch kernel where each block gets its own program.
@@ -132,9 +142,9 @@ def matmul(a, b, bias=None, activation=""):
     matmul_kernel[grid](
         a, b, c, bias,
         M, N, K,
-        a.shape[1], 1, 
-        b.shape[1], 1,
-        c.shape[1], 1,
+        stride_am, stride_ak, 
+        stride_bk, stride_bn,
+        stride_cm, stride_cn,
         # BLOCK_SIZE_M = 128, BLOCK_SIZE_N = 256,
         # BLOCK_SIZE_K = 64, GROUP_SIZE_M = 8,
         ACTIVATION=activation
@@ -168,6 +178,16 @@ else:
 # A X B + bias
 triton_output = matmul(a, b, bias)
 paddle_output = paddle.matmul(a, b) + bias
+if paddle.allclose(triton_output, paddle_output, atol=1e-2, rtol=0.0):
+    print("✅ Triton and Paddle match")
+else:
+    print("❌ Triton and Paddle differ")
+
+# A X B^T
+paddle_output = paddle.matmul(a, b)
+b_T = b.transpose(perm=[1, 0])
+b_T = b_T.contiguous()
+triton_output = matmul(a, b_T, istransposed = True)
 if paddle.allclose(triton_output, paddle_output, atol=1e-2, rtol=0.0):
     print("✅ Triton and Paddle match")
 else:
