@@ -94,23 +94,24 @@ def wint8_kernel(
 
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
 
-    # magic_number = (0x00006400)
-    # magic_number = magic_number.to(tl.uint16)
+    magic_number = (0x00006400)
+    magic_number = magic_number.to(tl.uint16)
 
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K * SPLIT_K)):
         
         #a = tl.load(a_ptrs, mask=offs_am[:, None] < M, other=0.0)
         a = tl.load(a_ptrs)
         b = tl.load(b_ptrs)
-        fp_b = b.to(tl.float16)
+
+        #fp_b = b.to(tl.float16)
+        
+        fp_b = b | magic_number
+        fp_b = fp_b.to(tl.float16, bitcast=True)
+        fp_b = fp_b - 1152
 
         bs_ptrs = bs_ptr + offs_bn[None, :]
         bs = tl.load(bs_ptrs)
         fp_b = fp_b * bs
-
-        # fp_b = b | magic_number
-        # fp_b = int_b.to(tl.float16, bitcast=True)
-        # fp_b = int_b - 1152
         
         accumulator += tl.dot(a, fp_b)
         # Advance the ptrs to the next K block.
@@ -126,7 +127,7 @@ def wint8_kernel(
         bias = tl.load(bias_ptrs)
         accumulator += bias[None,:]
     
-    # bs_ptrs = bs_ptr + (offs_bn[None, :])
+    # bs_ptrs = bs_ptr + offs_bn[None, :]
     # bs = tl.load(bs_ptrs)
     # accumulator = (accumulator * bs)
 
